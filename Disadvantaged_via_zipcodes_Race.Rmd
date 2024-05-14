@@ -1,0 +1,210 @@
+---
+title: "Disadvantaged_via_zipcodes_Race"
+author: "Ariel Daniels"
+date: "2024-02-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(here)
+library(tidyverse)
+library(tidyr)
+library(dplyr)
+library(readr)
+library(janitor)
+library(effsize)
+library(ggpubr)
+library(car)
+library(reshape2)
+library(ggplot2)
+library(knitr)
+```
+
+# Import Data
+```{r}
+all_access.data<-read_csv(here("data", "all_access.csv"))
+```
+
+# Make Race column categorical data
+```{r}
+# Filter dataset to match usful variables
+all_access_Race<-all_access.data %>% select(Zipcode, All_Access_Point, Total_TravelTime,Total_Kilometers, CIscore, Poverty, Youth_65, Elderly_65, Hispanic, White, African_American, Native_American, Asian_American, Pacific_Islander, Other_Multiple, Other_Races)
+names(all_access_Race)
+
+# Create a Race column with conditions
+all_access_Race$Race <- with(all_access_Race, ifelse(Hispanic > 40, 'Hispanic',ifelse(White > 40, 'White',ifelse(African_American > 40, 'African_American',ifelse(Native_American > 40, 'Native_American',ifelse(Asian_American > 40, 'Asian_American',ifelse(Pacific_Islander > 40, 'Pacific_Islander',ifelse(Other_Multiple > 40, 'Other_Multiple','No majority'))))))))
+
+all_access_Race$Race_new <-with(all_access_Race, ifelse(Hispanic > White & Hispanic > Other_Races, 'Hispanic',ifelse(White > Hispanic & White > Other_Races, 'White', ifelse(Other_Races > White & Other_Races > Hispanic, 'Other', 'No majority'))))
+```
+# Test for normality and equal variance
+```{r}
+Hispanic.data <- all_access_Race %>% filter(Race_new=="Hispanic")
+White.data <- all_access_Race %>% filter(Race_new=="White")
+Other_Races.data <- all_access_Race %>% filter(Race_new=="Other")
+African_American.data <- all_access_Race %>% filter(Race=="African_American")
+Native_American.data <- all_access_Race %>% filter(Race=="Native_American")
+Asian_American.data <- all_access_Race %>% filter(Race=="Asian_American")
+Pacific_Islander.data <- all_access_Race %>% filter(Race=="Pacific_Islander")
+Other.data <- all_access_Race %>% filter(Race=="Other_Multiple")
+
+# Create data frame and transform data
+Race.data <- rbind(White.data,Hispanic.data,African_American.data,Asian_American.data)
+Updated_Race.data <- Race.data %>% select(Race_new, Total_TravelTime, Total_Kilometers )
+Anova_Race.data <- t(Updated_Race.data )
+
+
+# Normality # The categories Native American, Pacific Islander and other don't have a large enough sample size (3-5000) to properly test Anova
+shapiro.test(Hispanic.data$Total_TravelTime)
+shapiro.test(White.data$Total_TravelTime)
+shapiro.test(Other_Races.data$Total_TravelTime)
+
+shapiro.test(Hispanic.data$Total_Kilometers)
+shapiro.test(White.data$Total_Kilometers)
+shapiro.test(Other_Races.data$Total_Kilometers)
+
+# Equal variance
+leveneTest(Total_TravelTime~as.factor(Race_new),
+  data=all_access_Race)
+
+leveneTest(Total_Kilometers~as.factor(Race_new),
+  data=all_access_Race)
+```
+From the output, the p-value > 0.05 is not accurate, implying that the distribution of the data is significantly different from normal distribution. In other words, we cannot assume the normality. Thus, I would need to use the non-parametric version of the ANOVA—the Kruskal-Wallis test. 
+
+
+# Statistical Test Plot ()
+```{r}
+qqplot_white <- ggplot(White.data, aes(sample=Total_TravelTime)) +
+  geom_qq() + stat_qq() + stat_qq_line() + labs(title="The White population's total travel time to an all access point") + theme_bw()  
+
+qqplot_brown <- ggplot(Hispanic.data, aes(sample=Total_TravelTime)) +
+  geom_qq() + stat_qq() + stat_qq_line() + labs(title="The Hispanic population's total travel time to an all access point") + theme_bw() 
+
+qqplot_other <- ggplot(Other_Races.data, aes(sample=Total_TravelTime)) +
+  geom_qq() + stat_qq() + stat_qq_line() + labs(title="The total travel time to an all access point from racial population' of races's that are not Hispanic or White  ") + theme_bw()
+
+qqplot_black <- ggplot(African_American.data, aes(sample=Total_TravelTime)) +
+  geom_qq() + stat_qq() + stat_qq_line() + labs(title="The African American population's total travel time to an all access point") + theme_bw() 
+
+qqplot_asian <- ggplot(Asian_American.data, aes(sample=Total_TravelTime)) +
+  geom_qq() + stat_qq() + stat_qq_line() + labs(title="The Asian American population's total travel time to an all access point") + theme_bw() 
+
+qqplot_native <- ggplot(Native_American.data, aes(sample=Total_TravelTime)) +
+  geom_qq() + stat_qq() + stat_qq_line() + labs(title="The Native American population's total travel time to an all access point") + theme_bw() 
+
+ggarrange(qqplot_white, qqplot_brown, qqplot_black, qqplot_asian, qqplot_native, qqplot_other,
+          labels= c("A", "B","C", "D", "E","F"), ncol=2, nrow=3)
+```
+# Statistical Test (Two-way Anova test)
+```{r}
+# Anova test w/ interaction of race and distance
+# Overall
+Anova_race_distance <- aov(Total_TravelTime ~ Race, data = Race.data)
+summary(Anova_race_distance)
+# White
+white_anova <- aov(Total_TravelTime ~ Race, data = White.data)
+summary(white_anova)
+# Hispanic
+Hispanic_anova <- aov(Total_TravelTime ~ Race, data = Hispanic.data)
+summary(Hispanic_anova)
+```
+From the Anova test the p-value < 0.05 is correct, thus we determine that there is a statistical significance between races interaction with distance as it relates to travel time. Distances interaction with the Hispanic community is the only scenario where there is no significance to total travel time.
+
+#Plot Anova
+```{r}
+# Box plots
+# ++++++++++++++++++++
+# Plot Total Travel Time by race and color by race
+Race_boxplot <- ggboxplot(Race.data, x="Race_new", y="Total_TravelTime", ylable = "Total Travel Time (Mins)", xlab = "Race", add ="jitter")
+Race_boxplot
+
+# Mean plots
+# ++++++++++++++++++++
+# Plot Total Travel Time by Race
+# Add error bars: mean_se
+# (other values include: mean_sd, mean_ci, median_iqr, ....)
+ggline(Race.data, x="Race_new", y="Total_TravelTime", main="Means and Standard of error for five racial categories",
+       add= c("mean_se", "jitter"), color="dark gray", ylab="Total Travel Time (Mins)", xlab="Race", point.color="black")
+```
+
+# Statistical Test analysis for more specific racial groups (Kruskal-Wallis test)
+```{r}
+# Kruskal-Wallis test
+kruskal.test(Total_TravelTime ~ Race, data = Race.data)
+
+# Multiple pairwise-comparison between racial groups
+pairwise.wilcox.test(Race.data$Total_TravelTime, Race.data$Race,
+                 p.adjust.method = "BH")
+```
+As the p-value is less than the significance level 0.05, we can conclude that there are significant differences between the racial groups.
+
+The pairwise comparison shows that, there are only significant differences (p < 0.05) in travel time between the following racial groups: African Americans & Hispanics, African Americans & Whites, Asian Americans & Hispanics, Asian Americans & Whites.  
+
+# Plots
+```{r}
+# Calculate Total Travel Time mean, IQR, standard deviation, and median
+race_model <- group_by(Race.data, Race) %>%
+  summarise(
+    mean = mean(Total_TravelTime, na.rm = TRUE),
+    sd = sd(Total_TravelTime, na.rm = TRUE),
+    median = median(Total_TravelTime, na.rm = TRUE),
+    IQR = IQR(Total_TravelTime, na.rm = TRUE),
+    se = sd/sqrt(length(Total_TravelTime)))
+
+kable(race_model, format="markdown", digits=3)
+
+# Box plots
+# ++++++++++++++++++++
+# Plot Total Travel Time by race and color by race
+Race_boxplot <- ggboxplot(Race.data, x="Race", y="Total_TravelTime", ylable = "Total Travel Time (Mins)", xlab = "Race", add ="jitter")
+Race_boxplot
+
+# Mean plots
+# ++++++++++++++++++++
+# Plot Total Travel Time by Race
+# Add error bars: mean_se
+# (other values include: mean_sd, mean_ci, median_iqr, ....)
+
+
+
+ggline(Race.data, x="Race", y="Total_TravelTime", main="Means and Standard of error for five racial categories",
+       add= c("mean_se"), color="black", ylab="Total Travel Time (Mins)", xlab="Race", point.color="black")
+
+
+ggplot(Race.data, aes(Race, Total_TravelTime)) +  stat_summary(aes(color = Race)) 
+
+compare_means(Total_TravelTime ~ Race, data = Race.data)
+
+my_comparisons <- list( c("White",	"African_American"), c("White",	"Asian_American"), c("Hispanic",	"African_American"), c("Hispanic",	"Asian_American"), c("African_American",	"Asian_American") )
+
+ggerrorplot(Race.data, x="Race", y="Total_TravelTime",  main="Means and standard error for five racial categories",
+            desc_stat = "mean_se",
+            error.plot = "errorbar",            # Change error plot type
+            add = "mean",                        # Add mean points
+          ylab="Total Travel Time (Mins)", xlab="Race"  )  +stat_compare_means(comparisons = my_comparisons, label.y = c(108, 125, 88, 67, 42))+
+ stat_compare_means(label.y = 150) 
+
+ggerrorplot(Race.data, x="Race", y="Total_TravelTime",  main="Means and standard error for five racial categories",
+            desc_stat = "mean_se",
+            error.plot = "errorbar",            # Change error plot type
+            add = "mean",                        # Add mean points
+          ylab="Total Travel Time (Mins)", xlab="Race"  ) + 
+
+  stat_compare_means(comparisons = my_comparisons, label = "p.signif",
+                     label.y = c(108, 125, 88, 67, 42)) + stat_compare_means(label.y = 150)
+
+
+ggerrorplot(Race.data, x="Race", y="Total_TravelTime",  main="Means and standard error for five racial categories",
+            desc_stat = "mean_se",
+            error.plot = "errorbar",            # Change error plot type
+            add = "mean",                        # Add mean points
+          ylab="Total Travel Time (Mins)", xlab="Race"  )+        # Add global anova p-value
+  stat_compare_means(label = "p.signif", method = "t.test",
+                     ref.group = ".all.", hide.ns = TRUE, label.y= 85) + annotate("text", x = 3, y = 90, label = "  a                           a                       ab                   b                   ab 
+") + 
+  rotate_x_text(angle = 15)
+
+
+```
+

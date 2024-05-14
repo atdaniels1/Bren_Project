@@ -1,0 +1,116 @@
+---
+title: "test"
+author: "Ariel Daniels"
+date: "2024-04-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(here)
+library(tidyverse)
+library(tidyr)
+library(dplyr)
+library(readr)
+library(janitor)
+library(ggplot2)
+library(ggpubr)
+library(datasets)
+library(multcompView)
+
+```
+
+```{r}
+all_access.data<-read_csv(here("data","all_access.csv"))
+```
+```{r}
+ # Test
+model_test <- lm(Total_TravelTime ~ Poverty, data=all_access.data)
+summary(model_test)
+ggplot(data=all_access.data, aes(x=Poverty, y=Total_TravelTime))+geom_point(color="black")+ labs(title="Time Traveled to a public access point via income", x="Poverty (%)", y="Time Traveled (mins)") +  
+  geom_smooth(formula=y~x, method="lm") +  theme_classic() +  scale_color_manual(name = "My Lines",
+                     values = c("blue"))
+
+p <- 
+  ggplot(all_access.data, aes(x=Poverty, y=Total_TravelTime))+geom_point(size=2, alpha=0.5, color="black") +
+  xlab("Poverty (%)") +
+  ylab("Time Traveled (mins)")+
+  stat_smooth(
+    aes(color="Regression line", fill="Confidence Interval"),
+    method = "lm",  formula = y~x, size = 1,
+    level = 0.95, alpha=0.5
+  )+
+  theme_classic() +
+  ggtitle("Time Traveled to a public access point via income") + scale_fill_manual(NULL, values = 'gray') +
+  scale_color_manual(NULL, values = 'blue') +
+  guides(
+    color=guide_legend(override.aes = list(fill=NA), order=1),
+    fill=guide_legend(override.aes = list(color=NA), order=2)
+  )+
+  theme(legend.position = "right") + annotate("text", x = 75, y = 325, label = "p-value: < 2.2e-16") +  annotate("text", x = 75, y = 350, label = "Adjusted R-squared:  0.07342")
+
+p
+```
+
+```{r}
+compare_means(Total_TravelTime ~ Race, data = Race.data)
+
+my_comparisons <- list( c("White",	"African_American"), c("White",	"Asian_American"), c("Hispanic",	"African_American"), c("Hispanic",	"Asian_American"), c("African_American",	"Asian_American") )
+
+
+ggerrorplot(Race.data, x="Race", y="Total_TravelTime",  main="Means and standard error for five racial categories",
+            desc_stat = "mean_se",
+            error.plot = "errorbar",            # Change error plot type
+            add = "mean",                        # Add mean points
+          ylab="Total Travel Time (Mins)", xlab="Race",   ) +stat_compare_means(comparisons = my_comparisons, label.y = c(108, 125, 88, 67, 42))+
+ stat_compare_means(label.y = 150) + theme(axis.text.x = element_text(angle = 12, vjust = 0.5))
+
+ 
+
+
+ggerrorplot(Race.data, x="Race", y="Total_TravelTime",  main="Means and standard error for five racial categories",
+            desc_stat = "mean_se",
+            error.plot = "errorbar",            # Change error plot type
+            add = "mean",    color = "Race", palette = "jco",                    # Add mean points
+          ylab="Total Travel Time (Mins)", xlab="Race"  ) + 
+
+  stat_compare_means(comparisons = my_comparisons, label = "p.signif",
+                     label.y = c(108, 125, 88, 67, 42)) + stat_compare_means(label.y = 150) + theme(axis.text.x = element_text(angle = 12, vjust = 0.5))
+```
+```{r}
+tukey <- TukeyHSD(Anova_race_distance)
+print(tukey)
+
+
+
+cld <- multcompLetters4(Anova_race_distance, tukey)
+print(cld)
+
+ggboxplot(Race.data, x = "Race", y = "Total_TravelTime", color = "Race", main= "Means and standard error for five racial categories",  desc_stat = "mean_se",
+          ylab="Total Travel Time (Mins)", xlab="Race") +
+  rotate_x_text(angle = 15)+ ylim(0,400) + ylim(0,100) +
+  stat_compare_means(method = "anova", label.y = 200)+        # Add global anova p-value
+  stat_compare_means(label = "p.signif", method = "t.test",
+                     ref.group = ".all.", hide.ns = FALSE, label.y= 80)  + annotate("text", x = 3, y = 70, label = "  a                           a                       ab                   b                   ab 
+")
+   # Pairwise comparison against all
+
+
+ggboxplot(Race.data, x="Race", y="Total_TravelTime",  main="Means and standard error for five racial categories",
+            desc_stat = "mean_se",
+            error.plot = "errorbar",            # Change error plot type
+            add = "mean",    color = "Race", palette = "jco",                    # Add mean points
+          ylab="Total Travel Time (Mins)", xlab="Race"  ) + 
+  rotate_x_text(angle = 15)+ ylim(0,400) + ylim(0,80) +
+  stat_compare_means(method = "anova", label.y = 200)+        # Add global anova p-value
+  stat_compare_means(label = "p.signif", method = "t.test",
+                     ref.group = ".all.", hide.ns = FALSE, label.y= 80)  + annotate("text", x = 3, y = 70, label = "  a                           a                       ab                   b                   ab 
+")
+
+ 
+
+
+
+
+```
+

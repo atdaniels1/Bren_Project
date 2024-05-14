@@ -1,0 +1,123 @@
+---
+title: "Disadvantaged_via_zipcodes_distance"
+author: "Ariel Daniels"
+date: "2024-03-06"
+output: 
+  html_document:
+     code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(here)
+library(tidyverse)
+library(tidyr)
+library(dplyr)
+library(readr)
+library(janitor)
+```
+
+# Import Data 
+```{r}
+all_access.data<-read_csv(here("data","all_access.csv"))
+```
+## Select out which variables to use
+```{r}
+all_access<-all_access.data %>% select(Zipcode, All_Access_Point, Total_TravelTime, Total_Kilometers, CIscore, Poverty, Youth_65, Elderly_65, Hispanic, White, African_American, Native_American, Asian_American, Pacific_Islander)
+names(all_access)
+getwd()
+```
+# Create a condition for the data
+```{r}
+# Data where Total Time Traveled is below 70 hours
+TimeTraveled_above70.data <- all_access %>% filter(Total_TravelTime>=70)
+# Data where Total Time Traveled is above 70 hours
+TimeTraveled_below70.data <- all_access %>% filter(Total_TravelTime<70)
+```
+
+### PLOTs & Linear Regression 
+```{r results=TRUE}
+
+ # Test
+model_test <- lm(Total_TravelTime ~ Poverty*Total_Kilometers, data=all_access)
+summary(model_test)
+ggplot(data=all_access, aes(x=Poverty, y=Total_TravelTime))+geom_point(color="black")+ labs(title="Time Traveled to a public access point via income", x="Poverty (%)", y="Time Traveled (mins)") +  
+  geom_smooth(formula=y~x, method="lm") +  theme_classic() +   scale_color_manual(values = c("#377EB8")) +
+  scale_fill_manual(values = c("red", "gray"),  breaks = c("gray"))
+
+
+p <- 
+  ggplot(all_access, aes(x=Poverty, y=Total_TravelTime))+geom_point(size=2, alpha=0.5, color="black") +
+  xlab("Poverty (%)") +
+  ylab("Time Traveled (mins)")+
+  stat_smooth(
+    aes(color="Regression line", fill="Confidence Interval"),
+    method = "lm",  formula = y~x, size = 1,
+    level = 0.95, alpha=0.5
+  )+
+  theme_classic() +
+  ggtitle("Time Traveled to a public access point via income") + scale_fill_manual(NULL, values = 'gray') +
+  scale_color_manual(NULL, values = 'blue') +
+  guides(
+    color=guide_legend(override.aes = list(fill=NA), order=1),
+    fill=guide_legend(override.aes = list(color=NA), order=2)
+  )+
+  theme(legend.position = "right") + annotate("text", x = 75, y = 325, label = "p-value: < 2.2e-16") +  annotate("text", x = 75, y = 350, label = "Adjusted R-squared:  0.9848")
+
+
+p
+
+
+ # Test2
+model_test2 <- lm(Total_TravelTime ~ Youth_65*Total_Kilometers, data=all_access)
+summary(model_test2)
+ggplot(data=all_access, aes(x=Youth_65, y=Total_TravelTime))+geom_point(color="black")+ labs(title="Time Traveled to a public access point via age", x="People under 65 (%)", y="Time Traveled (mins)") + geom_hline(yintercept=70, linetype="dashed") +
+  geom_smooth(formula=y~x, method="lm")
+
+# Test3
+model_test3 <- lm(Total_TravelTime ~ Elderly_65*Total_Kilometers, data=all_access)
+summary(model_test3)
+ggplot(data=all_access, aes(x=Elderly_65, y=Total_TravelTime))+geom_point(color="black")+ labs(title="Time Traveled to a public access point via age", x="People 65 and older (%)", y="Time Traveled (mins)") + geom_hline(yintercept=70, linetype="dashed") +
+  geom_smooth(formula=y~x, method="lm")
+
+
+# Plots for Poverty where travel time is above 70 hours
+model_2a <- lm(Total_TravelTime ~ Poverty, data=TimeTraveled_above70.data)
+summary(model_2a)
+all_access_plot <- ggplot(data=TimeTraveled_above70.data, aes(x=Poverty, y=Total_TravelTime))+geom_point(color="black")+ labs(title="Time Traveled to a public access point via income", x="Poverty (%)", y="Time Traveled (mins)") + geom_smooth(formula=y~x, method="lm") + theme_bw()
+all_access_plot
+
+# Plots for Poverty where travel time is below 70 hours
+model_3a <- lm(Total_TravelTime ~ Poverty, data=TimeTraveled_below70.data)
+summary(model_3a)
+all_access_plot <- ggplot(data=TimeTraveled_below70.data, aes(x=Poverty, y=Total_TravelTime))+geom_point(color="black")+ labs(title="Time Traveled to a public access point via income", x="Poverty (%)", y="Time Traveled (mins)") + geom_smooth(formula=y~x, method="lm") + theme_bw()
+all_access_plot
+
+# Plots for Age (Youth_65 or ???) where travel time is above 70 hours
+model_2b <- lm(Total_TravelTime ~ Youth_65, data=TimeTraveled_above70.data)
+summary(model_2b)
+ggplot(data=TimeTraveled_above70.data, aes(x=Youth_65, y=Total_TravelTime))+geom_point(color="black")+ labs(title="Time Traveled to a public access point via age", x="People under 65 (%)", y="Time Traveled (mins)") +
+  geom_smooth(formula=y~x, method="lm") + theme_bw()
+
+# Plots for Age (Youth_65 or ???) where travel time is below 70 hours
+model_3b <- lm(Total_TravelTime ~ Youth_65, data=TimeTraveled_below70.data)
+summary(model_3b)
+ggplot(data=TimeTraveled_below70.data, aes(x=Youth_65, y=Total_TravelTime))+geom_point(color="black")+ labs(title="Time Traveled to a public access point via age", x="People under 65 (%)", y="Time Traveled (mins)") +
+  geom_smooth(formula=y~x, method="lm") + theme_bw()
+
+
+# Plots for Age (Elderly_65) where travel time is above 70 hours
+model_2c <- lm(Total_TravelTime ~ Elderly_65, data=TimeTraveled_above70.data)
+summary(model_2c)
+ggplot(data=TimeTraveled_above70.data, aes(x=Elderly_65, y=Total_TravelTime))+geom_point(color="black")+ labs(title="Time Traveled to a public access point via age", x="People 65 and older (%)", y="Time Traveled (mins)") +
+  geom_smooth(formula=y~x, method="lm") + theme_bw()
+
+# Plots for Age (Elderly_65) where travel time is below 70 hours
+model_3c <- lm(Total_TravelTime ~ Elderly_65, data=TimeTraveled_below70.data)
+summary(model_3c)
+ggplot(data=TimeTraveled_below70.data, aes(x=Elderly_65, y=Total_TravelTime))+geom_point(color="black")+ labs(title="Time Traveled to a public access point via age", x="People 65 and older (%)", y="Time Traveled (mins)") +
+  geom_smooth(formula=y~x, method="lm") + theme_bw()
+
+```
+
+
